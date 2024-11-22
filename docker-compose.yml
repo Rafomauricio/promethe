@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: tiktoc-db
+    environment: 
+      POSTGRES_USER: tiktoc
+      POSTGRES_PASSWORD: TikToc-2024
+      POSTGRES_DB: tiktocdb
+    networks:
+      - tiktoc_net
+    volumes:
+      - 'postgres_data:/var/lib/postgresql/data'
+
+  elasticsearch:
+    image: 'docker.elastic.co/elasticsearch/elasticsearch:8.10.2'
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    networks:
+      - tiktoc_net
+    volumes:
+      - 'elasticsearch_data:/usr/share/elasticsearch/data'
+
+  redis:
+    image: redis:7.2
+    container_name: redis
+    networks:
+      - tiktoc_net
+    volumes:
+      - 'redis_data:/data'
+    command: ["redis-server", "--appendonly", "yes"]
+
+  redpanda:
+    image: vectorized/redpanda:latest
+    container_name: redpanda
+    networks:
+      - tiktoc_net
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --memory 512M
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --advertise-kafka-addr=localhost:9092
+    volumes:
+      - 'redpanda_data:/var/lib/redpanda/data'
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090" # Mapeo del puerto 9090
+    networks:
+      - tiktoc_net
+    volumes:
+      - 'prometheus_data:/prometheus'
+      - 'prometheus_config:/etc/prometheus' # Monte del archivo de configuración
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  prometheus-config:
+    image: alpine:latest
+    container_name: prometheus-config
+    networks:
+      - tiktoc_net
+    volumes:
+      - 'prometheus_config:/etc/prometheus'
+    command: sh -c "while true; do sleep 1000; done" # Mantén el contenedor activo
+
+networks:
+  tiktoc_net:
+    driver: bridge
+
+volumes:
+  elasticsearch_data:
+  redis_data:
+  postgres_data:
+  redpanda_data:
+  prometheus_data:
+  prometheus_config:
